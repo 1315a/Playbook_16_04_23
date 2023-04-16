@@ -1,0 +1,71 @@
+- name: Домашнее задание Amsible
+  hosts: all
+  become: yes
+  
+  vars:
+    app_name: SyncPaint
+    app_dir: /opt/{{ app_name }}
+    repo_url: https://github.com/pkrasicki/{{ app_name }}.git
+
+  tasks:
+    - name: Установка git на первой машине
+      when: inventory_hostname == "demo2"
+      apt:
+        name: git
+        state: present
+
+    - name: Клонирование репозитория на первой машине
+      when: inventory_hostname == "demo2"
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        force: yes
+
+
+    - name: Установка зависимостей для сборки приложения на первой машине
+      when: inventory_hostname == "demo2"
+      apt:
+        name:
+          - python3-pip
+          - build-essential
+          - libssl-dev
+          - libffi-dev
+          - python3-dev
+        state: present
+
+    - name: Установка зависимостей для запуска приложения на второй машине
+      when: inventory_hostname == "demo3"
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - libssl-dev
+          - libffi-dev
+          - python3-dev
+        state: present
+
+    - name: Установка зависимостей Python на первой машине
+      when: inventory_hostname == "demo3"
+      pip:
+        name:
+          - -r requirements.txt
+        chdir: "{{ app_dir }}"
+
+    - name: Создание директорий для приложения на второй машине
+      when: inventory_hostname == "demo3"
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: Копирование приложения на вторую машину
+      when: inventory_hostname == "demo3"
+      copy:
+        src: "{{ app_dir }}"
+        dest: "{{ app_dir }}"
+
+    - name: Запуск приложения на второй машине
+      when: inventory_hostname == "demo3"
+      shell: |
+        cd {{ app_dir }}
+        python3 {{ app_name }}.py
